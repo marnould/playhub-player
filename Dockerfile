@@ -6,7 +6,7 @@ COPY package*.json ./
 
 # Install dependencies
 RUN npm install --legacy-peer-deps --force
-
+RUN node -v && npm -v
 # Copy the entire project directory
 # This step is crucial - we need all source files for the build
 COPY . .
@@ -15,6 +15,7 @@ COPY . .
 ENV NODE_ENV=production
 ENV CI=false
 RUN npm run build
+CMD ["npm", "start"]
 
 # Production image
 FROM nginx:alpine

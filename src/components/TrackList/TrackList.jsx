@@ -1,17 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { getTracks } from '../../services/api';
 import './styles.css';
+import {usePlayer} from "../../contexts/PlayerContext";
+import player from "../Player/Player";
 
 const PlayIcon = () => <span className="player-icon">▶</span>;
 const PauseIcon = () => <span className="player-icon">⏸</span>;
 
 const TrackList = ({ onPlayTrack }) => {
     // Initialize tracks as an empty array instead of null/undefined
+    const [currentTrackId, currentTrack, setCurrentTrack] = useState(null);
+    const { playTrack, queue, setQueue, addToQueue } = usePlayer();
     const [tracks, setTracks] = useState([]);
-    const [currentTrackId, setCurrentTrackId] = useState(null);
-    // Add loading and error states to handle different data states
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
+
 
     useEffect(() => {
         const loadTracks = async () => {
@@ -48,13 +51,27 @@ const TrackList = ({ onPlayTrack }) => {
         loadTracks();
     }, []);
 
-    const handlePlayClick = (track) => {
-        const newTrackId = currentTrackId === track.id ? null : track.id;
-        setCurrentTrackId(newTrackId);
+    // const handlePlayClick = (track) => {
+    //     // Met à jour le morceau actuel et joue-le
+    //     playTrack(track.id, player.deviceId);
+    //
+    //     // Ajouter le morceau à la file d'attente si ce n'est pas déjà le cas
+    //     if (!queue.find(t => t.id === track.id)) {
+    //         setQueue([...queue, track]);
+    //     }
+    // };
 
-        if (onPlayTrack) {
-            onPlayTrack(newTrackId ? track : null);
+    const handlePlayClick = (track) => {
+        // Add the track to the queue if it's not already there
+        addToQueue(track);
+
+        // If no track is currently playing, set this as the current track
+        if (!currentTrack) {
+            setCurrentTrack(track);
         }
+
+        // Play the track
+        playTrack(track.id);
     };
 
     // Show loading state
@@ -95,7 +112,14 @@ const TrackList = ({ onPlayTrack }) => {
                     >
                         <div className="track-info">
                             <div className="track-title">{track.title}</div>
-                            <div className="track-artist">Artist Name</div>
+                            <div className="track-artist">
+                                {track.artists.map((artist, index) => (
+                                    <span key={artist.id}>
+                                        {artist.name}
+                                        {index < track.artists.length - 1 && ', '}
+                                    </span>
+                                ))}
+                            </div>
                             <div className="track-details">
                                 <div className="track-album">{track.album.title}</div>
                                 <div className="track-platform">
@@ -107,7 +131,7 @@ const TrackList = ({ onPlayTrack }) => {
                             className="play-button"
                             onClick={() => handlePlayClick(track)}
                         >
-                            {currentTrackId === track.id ? <PauseIcon /> : <PlayIcon />}
+                            {currentTrackId === track.id ? <PauseIcon/> : <PlayIcon/>}
                         </button>
                     </div>
                 ))}

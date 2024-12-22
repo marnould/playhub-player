@@ -1,78 +1,115 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { usePlayer } from '../../contexts/PlayerContext';
-import { getSpotifyToken, playTrack } from '../../services/api';
-import { Play, Pause } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward } from 'lucide-react';
 
 const Player = () => {
-    const { currentTrack, isPlaying, setIsPlaying, playNext } = usePlayer();
-    const [player, setPlayer] = useState(null);
-    const [progress, setProgress] = useState(0);
+    const {
+        currentTrack,
+        isPlaying,
+        setIsPlaying,
+        playTrack,
+        pauseTrack,
+        setCurrentTrack,
+        queue
+    } = usePlayer();
+    const [loading, setLoading] = useState(false);
 
+    // Add effect to handle track changes
     useEffect(() => {
-        const script = document.createElement("script");
-        script.src = "https://sdk.scdn.co/spotify-player.js";
-        script.async = true;
-        document.body.appendChild(script);
-
-        window.onSpotifyWebPlaybackSDKReady = () => {
-            const spotifyPlayer = new window.Spotify.Player({
-                name: 'Web Player',
-                getOAuthToken: cb => {
-                    getSpotifyToken().then(response => cb(response.data.token));
-                }
-            });
-
-            spotifyPlayer.addListener('ready', ({ device_id }) => {
-                console.log('Ready with Device ID', device_id);
-                setPlayer(spotifyPlayer);
-            });
-
-            spotifyPlayer.addListener('player_state_changed', state => {
-                if (!state) return;
-                setIsPlaying(!state.paused);
-
-                if (state.position === 0 && state.paused) {
-                    playNext();
-                }
-            });
-
-            spotifyPlayer.connect();
-        };
-    }, []);
-
-    useEffect(() => {
-        if (currentTrack && player) {
-            playTrack(`spotify:track:${currentTrack.spotifyId}`);
+        if (currentTrack && !isPlaying) {
+            playTrack(currentTrack.id);
         }
-    }, [currentTrack, player]);
+    }, [currentTrack]); // Only depend on currentTrack changes
 
-    const togglePlay = () => {
-        if (player) {
-            player.togglePlay();
+    const togglePlay = async () => {
+        setLoading(true);
+        try {
+            if (isPlaying) {
+                await pauseTrack();
+                setIsPlaying(false);
+            } else if (currentTrack) {
+                await playTrack(currentTrack.id);
+                setIsPlaying(true);
+            }
+        } catch (error) {
+            console.error('Error controlling the player:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const playNext = async () => {
+        const currentIndex = queue.findIndex(track => track.id === currentTrack?.id);
+        const nextTrack = queue[currentIndex + 1];
+
+        if (nextTrack) {
+            setLoading(true);
+            try {
+                setCurrentTrack(nextTrack);
+                await playTrack(nextTrack.id);
+            } catch (error) {
+                console.error('Error playing next track:', error);
+            } finally {
+                setLoading(false);
+            }
+        }
+    };
+
+    const playPrev = async () => {
+        const currentIndex = queue.findIndex(track => track.id === currentTrack?.id);
+        const prevTrack = queue[currentIndex - 1];
+
+        if (prevTrack) {
+            setLoading(true);
+            try {
+                setCurrentTrack(prevTrack);
+                await playTrack(prevTrack.id);
+            } catch (error) {
+                console.error('Error playing previous track:', error);
+            } finally {
+                setLoading(false);
+            }
         }
     };
 
     if (!currentTrack) return null;
 
     return (
-        <div className="p-4">
-            <div className="flex flex-col gap-4">
+        <div className="player-container">
+            <div className="player-controls">
+                <button
+                    onClick={playPrev}
+                    className="control-btn prev-btn"
+                    disabled={loading || !queue[queue.indexOf(currentTrack) - 1]}
+                >
+                    <SkipBack size={24}/>
+                </button>
+
+                <button
+                    onClick={togglePlay}
+                    className="control-btn play-btn"
+                    disabled={loading}
+                >
+                    {isPlaying ? <Pause size={24}/> : <Play size={24}/>}
+                </button>
+
+                <button
+                    onClick={playNext}
+                    className="control-btn next-btn"
+                    disabled={loading || !queue[queue.indexOf(currentTrack) + 1]}
+                >
+                    <SkipForward size={24}/>
+                </button>
+            </div>
+            <div className="track-info">
                 <img
-                    src={currentTrack.albumArt}
+                    src={currentTrack.album}
                     alt={currentTrack.title}
-                    className="w-full rounded-lg"
+                    className="track-img"
                 />
-                <div className="text-center">
-                    <h2 className="font-bold">{currentTrack.title}</h2>
-                    <p className="text-gray-500">{currentTrack.artist}</p>
-                </div>
-                <div className="flex justify-center">
-                    <button
-                        onClick={togglePlay}
-                        className="p-4 rounded-full bg-green-500 text-white"
-                    >
-                        {isPlaying ? <Pause size={24} /> : <Play size={24} />}
-                    </button>
+                <div className="track-details">
+                    <h2 className="track-title">{currentTrack.title}</h2>
+                    <p className="track-artist">{currentTrack.artist}</p>
                 </div>
             </div>
         </div>
